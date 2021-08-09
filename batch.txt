@@ -3,9 +3,5 @@ cd tests/p2a-test
 ls
 ls -la
 pwd
-
-echo hola probando el batch
-
-
-
+echo Prueba batch
 exit

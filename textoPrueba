@@ -1,0 +1,8 @@
+total 56
+hola probando el batch
+drwxr-xr-x  2 juan juan  4096 ago  8 22:48 .
+drwxr-xr-x 19 juan juan  4096 ago  6 21:29 ..
+-rw-rw-r--  1 juan juan    72 may 22 18:25 batch.txt
+-rw-rw-r--  1 juan juan   476 may 22 18:25 textoPrueba
+-rwxrwxr-x  1 juan juan 22432 ago  8 22:46 wish
+-rw-rw-r--  1 juan juan 12517 ago  8 22:46 wish.c

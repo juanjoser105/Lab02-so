@@ -9,11 +9,12 @@
 int main(int argc, char *argv[]) {
     struct timeval tiempoActual;
     struct timeval tiempoFinal;
-
-    gettimeofday(&tiempoActual, NULL);
-
     //Iniciamos el fork
     int child = fork();
+    //obtenemos el tiempo actual
+    gettimeofday(&tiempoActual, NULL);
+
+    
     if (child == 0) {
         char *c_args[argc];
 

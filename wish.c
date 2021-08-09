@@ -1,72 +1,75 @@
+#include<fcntl.h>
 #include<stdio.h>
+#include<sys/wait.h>
+#include<ctype.h>
 #include<string.h>
 #include<stdlib.h>
 #include<unistd.h>
 
-#include<sys/wait.h>
-#include<fcntl.h>
-#include<ctype.h>
-
-int BSIZE= 512;
-int batch=0;
-int pathChanged=0;
+char MENSAJE_ERROR[50] = "Se ha presentado un error";
+int MultipathNumero=0;
+char multiPath[512][512];
+int sizeLote= 512;
+int cambioPath=0;
 int CLOSED=0;
 int pathVacio=0;
-int numberMultiPath=0;
-char ERROR_MESSAGE[128] = "An error has occurred\n";
-char multiPath[512][512];
 char *path;
+int lote=0;
 
-//Imprime repetidamente el prompt wish
+//Imprime repetidamente el prompt wish 
+
+//Analiza la entrada y luego ejecuta el comando especificado.
+//Este proceso se repite indefinidamente hasta que algún usuario escriba exit. 
 void promptPpal(){
         write(STDOUT_FILENO, "wish> ", strlen("wish> "));                
 }
 
-int checkOnlySpace(char* buffer){
-        int flag=0;
+int ComprobarEspacio(char* buffer){
+        int bandera=0;
         for(int i=0;i<strlen(buffer);i++){
                 if(isspace(buffer[i])==0){
-                        flag=1;
+                        bandera=1;
                         break;
                 }
         }        
-        return flag;
+        return bandera;
 }  
 
-void printError(){
-        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+
+void impresionError(){
+        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
         exit(1);
         
 }
 
-int newProcess(char *myargs[]) {
-        int rc=fork();
-        if(rc<0){ //Fork Error
-                printError();
+int ProcesoNuevo(char *myargs[]) {
+        int np=fork(); //Función Fork realiza copias exactas de un repositorio para ser usadas en cualquier instancia
+        if(np<0){ //Lineas realizadas por si se presenta un error en el Fork
+                impresionError();
                 exit(1); 
         }
-        else if(rc==0 && pathVacio!=1){ //Child process
-                if(pathChanged==0){
+        else if(np==0 && pathVacio!=1){ //Proceso que se realiza para la revisión del método
+                if(cambioPath==0){
                         path=strdup("/bin/");
-                        path=strcat(path,myargs[0]);
-                        if(access(path,X_OK)!=0 && pathChanged==0){//successfully accessed binary or not?
+                        path=strcat(path,myargs[0]); // Se revisa si el acceso fue correcto o no
+                        if(access(path,X_OK)!=0 && cambioPath==0){ 
                                 path=strdup("/usr/bin/");
                                 path=strcat(path,myargs[0]);
                                 if(access(path,X_OK)!=0){
-                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                         exit(0);
                                 }
                         }             
                   }
-                  else if(pathChanged==1 && numberMultiPath==0){
+                  else if(cambioPath==1 && MultipathNumero==0){   //Verifica las opciones de CambioPath y Numero De Multipath para ver si actuar o lanzar mensaje error
                          path=strcat(path,myargs[0]);
                         if(access(path,X_OK)!=0){
-                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                         exit(0);
                                 }
                   }
                   else{
-                        for(int x=0;x<numberMultiPath;x++){
+                        for(int x=0;x<MultipathNumero;x++){              //Opción que se realiza si las otras no se cumplen.
                                 strcat(multiPath[x],myargs[0]);
                                  if(access(multiPath[x],X_OK)==0){
                                         strcpy(path,multiPath[x]);
@@ -75,34 +78,34 @@ int newProcess(char *myargs[]) {
                         }
                         
                   }
-                  if(execv(path,myargs)==-1){//successfuly executed binary or not? 
-                                printError();
+                  if(execv(path,myargs)==-1){    // Revisa si se ejecuto correctamente o no
+                                impresionError();
                                 exit(0);
                   }
                   
         }
         else {
-                int returnStatus=0;
+                int estado=0;
         }
-        return rc;
+        return np;
 }
 
 
 
-int preProcess(char *buffer){
+int procesamiento_anterior(char *buffer){
         int stdout_copy=0;
-        int rc;
-        if(strstr(buffer,">")!=NULL){ //REDIRECT
-                        int a=0;
+        int np;
+        if(strstr(buffer,">")!=NULL){   // Método de redireccionamiento
+                        int b=0;        // Cuando un usuario quiere enviar la salida de un programa a un archivo en lugar de la pantalla
                         
                         char* multiRedirect[sizeof(char)*512];
                         multiRedirect[0]= strtok(strdup(buffer)," \n\t>");
-                        while(multiRedirect[a]!=NULL){
-                                a++;
-                                multiRedirect[a]=strtok(NULL," \n\t>");
+                        while(multiRedirect[b]!=NULL){
+                                b++;
+                                multiRedirect[b]=strtok(NULL," \n\t>");
                         }
-                        if(a==1){ //no output file
-                            write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE)); 
+                        if(b==1){    //Mensaje de error cuando no hay archivo donde enviarlo 
+                            write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR)); 
                             exit(0);    
                         }
                         int i=0;
@@ -112,8 +115,8 @@ int preProcess(char *buffer){
                                 i++;
                                 myargs[i]=strtok(NULL," \n\t>"); 
                         }
-                        if(i>2){ //no output file
-                            write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE)); 
+                        if(i>2){    //Mensaje de error cuando no hay archivo donde enviarlo 
+                            write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR)); 
                             exit(0);    
                         }
                         int x=0;
@@ -134,7 +137,7 @@ int preProcess(char *buffer){
                         close(out);
                         CLOSED=1;
                         if(out==-1 || error==-1 || x>1 || i>2){
-                                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                 exit(0);
                         }
                         myargs[i+1]=NULL;
@@ -157,18 +160,18 @@ int preProcess(char *buffer){
 		        if(strcmp(command[0],"cd") == 0){//cd
                                 if(p==2){
                                         if(chdir(command[1])!=0){
-                                                write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                                write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                                
                                         }
                                  }
-                                 else{ //0 Arguments or more than 2 arguments?
-                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                 else{ // Error cuando se presentan 0 argumentos para revisar o más de dos argumentos que no es válido
+                                        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                         
                                  }
                                                         
                         }  
                         else if(strcmp(command[0],"path") == 0){
-                                pathChanged=1;
+                                cambioPath=1;
                                 if(p==2){
                                         pathVacio=0;
                                         path=strdup(command[1]);
@@ -187,7 +190,7 @@ int preProcess(char *buffer){
                                                 if(temp[strlen(temp)-1]!='/')
                                                         strcat(temp,"/");
                                                 strcpy(multiPath[i-1],temp);
-                                                numberMultiPath++;
+                                                MultipathNumero++;
                                         }
 
                         
@@ -199,16 +202,16 @@ int preProcess(char *buffer){
 			    if(p==1){
                                         exit(0);
                                 }
-                                else{ //0 Arguments or more than 2 arguments?
-                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                else{ // Error cuando se presentan 0 argumentos para revisar o más de dos argumentos que no es válido
+                                        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                         
                                 }
                         }    
                         else{
                                 if(pathVacio==1)
-                                        write(STDERR_FILENO, ERROR_MESSAGE, strlen(ERROR_MESSAGE));
+                                        write(STDERR_FILENO, MENSAJE_ERROR, strlen(MENSAJE_ERROR));
                                 else
-                                        rc=newProcess(command);
+                                        np=ProcesoNuevo(command);
                         }
 
                 }
@@ -217,68 +220,69 @@ int preProcess(char *buffer){
                         close(stdout_copy);
                         
                 }
-               return rc;
+               return np;
 }
+
 
 
 int main(int argc, char* argv[]){
         FILE *file = NULL;
-        path=(char*) malloc(BSIZE);
-        char buffer[BSIZE];
+        path=(char*) malloc(sizeLote);
+        char buffer[sizeLote];
         
         
         
-        if(argc==1){ //Not batch mode
-                file=stdin; //Store standard input to the file.
+        if(argc==1){ // Modo diferente al de los lotes. 
+                file=stdin; //Guardado estándar stdin para la linea de entrada
                 promptPpal();
         }
         
-        else if(argc==2){ //Batch mode
+        else if(argc==2){ //Parte del código del modo por lotes, donde el shell recibe un archivo de entrada de comando
                 
-                char *bFile= strdup(argv[1]);
+                char *bFile= strdup(argv[1]);   //Abrir archivos para que los comandos se ejecuten.
                 file = fopen(bFile, "r");
                 if (file == NULL) {
-        	        printError();
+        	        impresionError();
                 }
-                batch=1;
+                lote=1;
         }
         else{
-                printError();
+                impresionError();
         }
 
-        while(fgets(buffer, BSIZE, file)){ //Writes from file to buffer
+        while(fgets(buffer, sizeLote, file)){ //Escribe desde el archivo hasta el Buffer
                 CLOSED=0;
-                if(checkOnlySpace(buffer)==0){ //Checks if the buffer is only space.
+                if(ComprobarEspacio(buffer)==0){ //Verifica si el Buffer tiene espacio libre
                         continue;
                 }
-                if(strstr(buffer,"&")!=NULL){//Concurrency
+                if(strstr(buffer,"&")!=NULL){//Manejo de la concurrencia
                         int j=0;
                         char *myargs[sizeof(buffer)];
                         myargs[0]= strtok(buffer,"\n\t&");                            
                         while(myargs[j]!=NULL){
                                 j++;
-                                myargs[j]=strtok(NULL,"\n\t&"); // every call with NULL uses saved user_input 
-                                                   // value and returns next substring
+                                myargs[j]=strtok(NULL,"\n\t&"); 
+                                                  
                                 
                         }
                         myargs[j+1]=NULL;
                         int pid[j];
                         for(int i=0;i<j;i++){
-                                pid[i]=preProcess(myargs[i]);
+                                pid[i]=procesamiento_anterior(myargs[i]);
                                 
                         for(int x=0;x<j;i++){
                                 int returnStatus=0;
                                 waitpid(pid[x],&returnStatus,0);                        
                                 if (returnStatus == 1)      
                                 {
-                                        printError();    
+                                        impresionError();    
                                 }
                         
                         }
                       }
                 }
                 else{
-                    	preProcess(buffer);
+                    	procesamiento_anterior(buffer);
                 }
                 if(argc == 1) {
                         promptPpal();
